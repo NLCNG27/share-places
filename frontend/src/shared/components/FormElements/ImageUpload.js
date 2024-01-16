@@ -19,6 +19,7 @@ const ImageUpload = (props) => {
             setPreviewUrl(fileReader.result);
         };
         fileReader.readAsDataURL(file);
+        console.log('previewUrl:', previewUrl);
     }, [file]);
 
     const pickedHandler = (event) => {

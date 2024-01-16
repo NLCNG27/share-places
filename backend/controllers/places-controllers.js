@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 const { v4: uuid } = require("uuid");
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
@@ -34,10 +36,10 @@ const getPlaceById = async (req, res, next) => {
 const getPlacesByUserId = async (req, res, next) => {
     const userId = req.params.uid;
 
-    let userWithPlaces
+    let userWithPlaces;
 
     try {
-        userWithPlaces = await User.findById(userId).populate('places');
+        userWithPlaces = await User.findById(userId).populate("places");
     } catch (err) {
         const error = new HttpError(
             "Fetching places failed, please try again later.",
@@ -56,7 +58,9 @@ const getPlacesByUserId = async (req, res, next) => {
     }
 
     res.json({
-        places: userWithPlaces.places.map((place) => place.toObject({ getters: true })),
+        places: userWithPlaces.places.map((place) =>
+            place.toObject({ getters: true })
+        ),
     });
 };
 
@@ -82,7 +86,7 @@ const createPlace = async (req, res, next) => {
         description,
         address,
         location: coordinates,
-        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Empire_State_Building_%28aerial_view%29.jpg/800px-Empire_State_Building_%28aerial_view%29.jpg",
+        image: req.file.path,
         creator,
     });
 
@@ -112,10 +116,10 @@ const createPlace = async (req, res, next) => {
         const sess = await mongoose.startSession();
         sess.startTransaction();
         await createdPlace.save({ session: sess });
-        console.log('type:', typeof createdPlace);
+        console.log("type:", typeof createdPlace);
         user.places.push(createdPlace);
-        console.log('here now')
-        
+        console.log("here now");
+
         await user.save({ session: sess });
         await sess.commitTransaction();
     } catch (err) {
@@ -175,7 +179,7 @@ const deletePlace = async (req, res, next) => {
     let place;
 
     try {
-        place = await Place.findById(placeId).populate('creator');   // populate can only be used when 2 collections are related
+        place = await Place.findById(placeId).populate("creator"); // populate can only be used when 2 collections are related
     } catch (err) {
         const error = new HttpError(
             "Something went wrong, could not delete place.",
@@ -189,12 +193,14 @@ const deletePlace = async (req, res, next) => {
         return next(error);
     }
 
+    const imagePath = place.image;
+
     try {
         const sess = await mongoose.startSession();
         sess.startTransaction();
         await place.deleteOne({ session: sess }); // remove() method no longer works for mongoose
-        place.creator.places.pull(place);         // automatically remove the id
-        await place.creator.save(); 
+        place.creator.places.pull(place); // automatically remove the id
+        await place.creator.save();
         await sess.commitTransaction();
     } catch (err) {
         const error = new HttpError(
@@ -203,6 +209,11 @@ const deletePlace = async (req, res, next) => {
         );
         return next(error);
     }
+
+    fs.unlink(imagePath,  err => {
+        console.log(err);
+    });
+
 
     res.status(200).json({ message: "Deleted place." });
 };
